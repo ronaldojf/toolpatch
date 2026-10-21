@@ -34,6 +34,8 @@ Adaptador: `id`, `matches` (padrões Tampermonkey), `matchesURL(URL)`, `pageKey(
 
 Use Node >=22; `npm ci`, `npm test`, `npm run build`. Escreva regressões relevantes antes de corrigir comportamento. Teste a fronteira de HTTP/registro, não apenas textos ou a forma do código. Valide no Browser real quando mudar descoberta, injeção ou ciclo de vida; testes sintéticos não comprovam que o Tampermonkey injetou o script.
 
+Para testar o adaptador com conteúdo sintético no Browser, execute `python3 -m http.server 8766 --bind 127.0.0.1` na raiz e abra `http://127.0.0.1:8766/tests/browser/fixture.html`. A fixture registra ferramentas WebMCP com um email sintético; valide a injeção do Tampermonkey separadamente no site real.
+
 A instalação inicial pode exigir colar o conteúdo completo de `dist/toolpatch.user.js` no painel do Tampermonkey. O painel interno da extensão não é acessível pela automação atual; peça a ação manual depois de preparar o arquivo concreto. Não tente contornar essa restrição por outra superfície.
 
 O build usa `config.updateBase` do `package.json` para gerar os endereços de atualização. `--update-base https://host/pasta/` permite gerar um artefato com outra fonte. Valide que a URL é acessível ao Tampermonkey sem a sessão SSH do desenvolvedor.
