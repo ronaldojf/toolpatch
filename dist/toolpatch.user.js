@@ -43,7 +43,7 @@
     return { ...isError ? { isError: true } : {}, content: [{ type: "text", text: JSON.stringify(value) }] };
   }
   function summary(message) {
-    return { key: message.key, from: message.from.slice(0, 500), subject: message.subject.slice(0, 500), createdAt: message.created_at };
+    return { key: message.key, from: message.from.slice(0, 500), subject: message.subject.slice(0, 500), createdAt: new Date(message.created_at).toISOString() };
   }
   function htmlText(document, html) {
     const template = document.createElement("template");
@@ -119,7 +119,8 @@
         let data;
         try {
           data = await response.json();
-        } catch {
+        } catch (error) {
+          if (requestSignal.aborted || !(error instanceof SyntaxError)) throw error;
           failure("invalid_response", "The site did not return valid JSON.");
         }
         check(signal);
@@ -192,7 +193,7 @@
             const match = list.find((m) => m.from.toLowerCase().includes(from.toLowerCase()) && m.subject.toLowerCase().includes(subject.toLowerCase()));
             if (match) return { status: "found", mailbox: selected, message: summary(match) };
           } catch (error) {
-            if (error.code === "rate_limited") delay = error.retryAfterSeconds * 1e3;
+            if (error.code === "rate_limited") delay = Math.max(POLL_MS, error.retryAfterSeconds * 1e3);
             else if (error.code !== "request_timeout" || now() < deadline) throw error;
           }
           await sleep(Math.min(delay, Math.max(0, deadline - now())), signal);

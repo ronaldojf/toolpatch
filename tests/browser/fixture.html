@@ -1,0 +1,21 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Toolpatch synthetic Browser fixture</title>
+<h1>Toolpatch: synthetic HTML-only email</h1>
+<p id="status">Loading fixture…</p>
+<script type="module">
+import { ursaAdapter } from '/src/adapters/ursa.js';
+const context = document.modelContext ?? navigator.modelContext;
+const controller = new AbortController();
+const email = {
+  key: 'html-only', from: 'fixture@example.test', subject: 'Synthetic HTML-only email', created_at: 1792584000000,
+  bodyPlain: '', bodyHtml: '<p>Hello &amp; goodbye.</p><script>document.body.dataset.unsafe="yes"<\/script><style>hidden-css</style><img src="/unexpected-image" onerror="document.body.dataset.unsafe=\'yes\'">', spamScore: 0,
+};
+const tools = ursaAdapter.createTools({
+  window: { location: new URL('https://tuamaeaquelaursa.com/synthetic-fixture'), document },
+  signal: controller.signal,
+  fetch: async () => Response.json({ messages: [email] }),
+});
+for (const tool of tools) await context.registerTool(tool, { signal: controller.signal });
+document.querySelector('#status').textContent = 'Ready. Four native tools; synthetic data only.';
+</script>

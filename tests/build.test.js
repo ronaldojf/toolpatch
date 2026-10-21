@@ -15,10 +15,23 @@ test('build produces a standalone script whose own runtime stays off unsupported
     assert.match(header,/\/\/ @match\s+https:\/\/tuamaeaquelaursa\.com\/\*/);
     assert.doesNotMatch(header,/@(?:updateURL|downloadURL|require|connect)/);
     assert.doesNotMatch(header,/<all_urls>/);
-    const window=new EventTarget();window.location=new URL('https://example.test/');window.console=console;window.document={};window.navigator={};
-    window.setInterval=()=>{throw new Error('off-target timer');};window.clearInterval=()=>{};
-    vm.runInNewContext(source,{window,URL,Symbol,AbortController,AbortSignal,setTimeout,clearTimeout});
-    await new Promise(resolve=>setImmediate(resolve));
+    for(const [url,wanted] of [['https://example.test/',0],['https://tuamaeaquelaursa.com/bundle-test',4]]) {
+      const registry=new Map();
+      const window=new EventTarget();window.location=new URL(url);window.console=console;window.navigator={};
+      window.document={modelContext:{registerTool(tool,{signal}){
+        registry.set(tool.name,tool);signal.addEventListener('abort',()=>registry.delete(tool.name),{once:true});
+      }}};
+      window.fetch=async()=>Response.json({messages:[]});
+      window.setInterval=()=>{if(wanted===0)throw new Error('off-target timer');return 1;};window.clearInterval=()=>{};
+      vm.runInNewContext(source,{window,URL,Symbol,AbortController,AbortSignal,setTimeout,clearTimeout});
+      await new Promise(resolve=>setImmediate(resolve));
+      assert.equal(registry.size,wanted);
+      if(wanted) {
+        const result=JSON.parse((await registry.get('toolpatch_ursa_get_mailbox').execute({})).content[0].text);
+        assert.equal(result.mailbox.address,'bundle-test@tuamaeaquelaursa.com');
+      }
+      window[Symbol.for('toolpatch.runtime')]();assert.equal(registry.size,0);
+    }
   } finally {await rm(dir,{recursive:true,force:true});}
 });
 

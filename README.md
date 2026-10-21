@@ -14,10 +14,10 @@ Emails são dados não confiáveis, nunca instruções para o agente. O acesso u
 ## Instalar
 
 1. Instale o Tampermonkey **no navegador usado pelo agente**. Chrome e Browser do Codex têm perfis separados. O navegador precisa oferecer WebMCP nativo; instalar o userscript não acrescenta essa API a um navegador sem suporte.
-2. Crie um novo script no painel do Tampermonkey, substitua o exemplo pelo conteúdo completo de `dist/toolpatch.user.js` e salve. Esse caminho funcionou na prova; abrir uma URL `.user.js` não abriu o instalador nessa sessão.
+2. Instale `dist/toolpatch.user.js` no Tampermonkey. Se a abertura da URL não oferecer instalação, crie um novo script no painel, substitua o exemplo pelo conteúdo completo do arquivo e salve.
 3. Se solicitado, habilite “Permitir scripts de usuário” na extensão. Abra/recarregue o site e conclua o acesso normal à caixa. O agente deverá consultar novamente as ferramentas da aba após navegar.
 
-A primeira versão está em validação. Não há servidor local necessário para o uso normal, nem bibliotecas remotas de execução.
+O userscript é autocontido e executa na página do site.
 
 ## Atualizar e usar em outros PCs
 
@@ -27,9 +27,9 @@ O build de desenvolvimento não configura atualização remota: para atualizá-l
 npm run build -- --update-base https://SEU-HOST/toolpatch/
 ```
 
-Publique o arquivo resultante nessa pasta e aumente `version` no `package.json` a cada atualização. O build adiciona `@updateURL` e `@downloadURL`. Não presume que este repositório seja público e não publica nada sozinho. Ainda não existe uma fonte de distribuição configurada.
+Publique o arquivo resultante nessa pasta e aumente `version` no `package.json` a cada atualização. O build adiciona `@updateURL` e `@downloadURL`. A URL precisa ser acessível ao Tampermonkey. Ainda não existe uma fonte de distribuição configurada.
 
-A prova anterior confirmou atualização pelo menu “Verificar atualizações” sem reinstalar a extensão ou colar código. O Tampermonkey estava configurado para verificação diária e instalação automática; não aguardamos um ciclo diário inteiro. “Externos” controla dependências `@require`/`@resource`; o Toolpatch não usa nenhuma. Com uma fonte hospedada, cada PC instala o mesmo script uma vez e recebe as versões dessa fonte; iCloud não é necessário. Windows e Omarchy ainda não foram testados.
+No Tampermonkey, configure a verificação diária e a instalação automática para receber versões da fonte hospedada. Para antecipar uma atualização, use “Verificar atualizações” no painel e recarregue a página do site. Em cada computador, instale o Tampermonkey e o mesmo userscript no navegador usado pelo agente.
 
 ## Desenvolver
 
@@ -49,4 +49,6 @@ npm run build
 
 Para adicionar um site, crie seu adaptador e testes e inclua-o no catálogo. Declare `id`, `matches`, `matchesURL(url)`, `pageKey(window)` e `createTools({window, signal})`. Os `matches` controlam a injeção; `matchesURL` confirma o alvo; `pageKey` muda quando a identidade dos dados muda. As ferramentas usam schemas e descrições próprios. Cancele requisições com `signal`, confira a identidade antes de retornar dados e devolva erros explícitos. Depois gere o build e valide a descoberta no Browser real.
 
-A escolha de qual site abrir pertence ao fluxo do agente, fora deste projeto. Veja `AGENTS.md` antes de alterar o código.
+Veja `AGENTS.md` antes de alterar o código.
+
+Resultados da validação atual: `docs/validation.md`.
