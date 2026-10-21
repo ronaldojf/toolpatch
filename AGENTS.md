@@ -1,5 +1,9 @@
 # Toolpatch para agentes
 
+## Documentação
+
+Mantenha o repositório sem README na raiz, independentemente da capitalização do nome. Não adicione ou gere esse arquivo. Concentre a contextualização para agentes neste AGENTS.md e a documentação complementar em `docs/`.
+
 ## Propósito e filosofia
 
 Toolpatch acrescenta ferramentas WebMCP a sites de terceiros por meio de um userscript Tampermonkey. Cada adaptador descreve as próprias ferramentas para descoberta nativa pelo agente.
@@ -33,3 +37,9 @@ Use Node >=22; `npm ci`, `npm test`, `npm run build`. Escreva regressões releva
 A instalação inicial pode exigir colar o conteúdo completo de `dist/toolpatch.user.js` no painel do Tampermonkey. O painel interno da extensão não é acessível pela automação atual; peça a ação manual depois de preparar o arquivo concreto. Não tente contornar essa restrição por outra superfície.
 
 Build de desenvolvimento omite URLs de atualização. Build com `--update-base https://host/pasta/` exige fonte real previamente escolhida e acessível; aumente a versão para atualizar. Valide que a URL de atualização é acessível ao Tampermonkey sem a sessão SSH do desenvolvedor.
+
+## Distribuição
+
+O workflow `.github/workflows/publish.yml` testa e publica o userscript pelo GitHub Pages quando código ou configuração de build chegam à `main`. A instalação distribuída usa `https://ronaldojf.github.io/toolpatch/toolpatch.user.js` e inclui os endereços de atualização do Tampermonkey. O Pages recebe somente `dist/`.
+
+Ao alterar o código distribuído, incremente `version` no `package.json` e atualize `package-lock.json` antes de publicar; o Tampermonkey identifica atualizações pelo número da versão. Execute `npm test` e `npm run build`, versionando também o artefato gerado. A versão publicada pelo workflow inclui os metadados de atualização; instale a partir da URL de distribuição.

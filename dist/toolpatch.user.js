@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Toolpatch
 // @namespace    https://github.com/ronaldojf/toolpatch
-// @version      0.1.0
+// @version      0.1.1
 // @description  WebMCP tools for supported sites, starting with Ursa temporary email.
 // @match        https://tuamaeaquelaursa.com/*
 // @grant        none
