@@ -16,7 +16,7 @@ Prefira soluções pequenas e explícitas. Só extraia código comum quando houv
 - `src/adapters/ursa.js`: rotas, API e ferramentas da caixa atual de `tuamaeaquelaursa.com`.
 - `src/core/runtime.js`: seleção, registro, cancelamento e navegação SPA/BFCache.
 - `src/main.js`: entrada; `scripts/build.mjs`: esbuild e cabeçalho Tampermonkey.
-- `dist/toolpatch.user.js`: gerado e versionado. Altere fontes e execute o build.
+- `dist/toolpatch.user.js`: bundle minificado, gerado e versionado. Altere fontes e execute o build.
 - `tests/`: Node test runner; respostas sintéticas, sem emails pessoais.
 
 Adaptador: `id`, `matches` (padrões Tampermonkey), `matchesURL(URL)`, `pageKey(window)` (identidade dos dados), `createTools({window, signal})` (ferramentas nativas). Metadados e seleção devem concordar. Ao navegar, o runtime cancela o adaptador anterior; ferramentas também conferem a caixa antes de devolver resultados.

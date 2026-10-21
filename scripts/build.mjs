@@ -32,7 +32,7 @@ export async function buildUserscript({ output = resolve(root, 'dist/toolpatch.u
     '// @noframes',
     '// ==/UserScript==',
   ].join('\n');
-  await build({ entryPoints: [resolve(root, 'src/main.js')], bundle: true, format: 'iife', target: 'chrome131', outfile: output, banner: { js: metadata }, legalComments: 'none', charset: 'utf8' });
+  await build({ entryPoints: [resolve(root, 'src/main.js')], bundle: true, minify: true, format: 'iife', target: 'chrome131', outfile: output, banner: { js: metadata }, legalComments: 'none', charset: 'utf8' });
 }
 
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
