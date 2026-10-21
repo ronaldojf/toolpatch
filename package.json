@@ -4,6 +4,14 @@
   "private": true,
   "type": "module",
   "description": "Site adapters that expose WebMCP tools through a userscript",
-  "scripts": { "test": "node --test", "build": "node scripts/build.mjs" },
-  "engines": { "node": ">=22" }
+  "scripts": {
+    "test": "node --test",
+    "build": "node scripts/build.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
 }
