@@ -4,6 +4,8 @@
 
 Mantenha o repositório sem README na raiz, independentemente da capitalização do nome. Não adicione ou gere esse arquivo. Concentre a contextualização para agentes neste AGENTS.md e a documentação complementar em `docs/`.
 
+Guarde planejamentos, specs e outros artefatos locais do Superpowers em `.superpowers/` ou `docs/superpowers/`, pastas excluídas pelo `.gitignore` versionado.
+
 ## Propósito e filosofia
 
 Toolpatch acrescenta ferramentas WebMCP a sites de terceiros por meio de um userscript Tampermonkey. Cada adaptador descreve as próprias ferramentas para descoberta nativa pelo agente.
