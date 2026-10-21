@@ -13,7 +13,9 @@ test('build produces a standalone script whose own runtime stays off unsupported
     const source=await readFile(output,'utf8');
     const header=source.slice(0,source.indexOf('// ==/UserScript=='));
     assert.match(header,/\/\/ @match\s+https:\/\/tuamaeaquelaursa\.com\/\*/);
-    assert.doesNotMatch(header,/@(?:updateURL|downloadURL|require|connect)/);
+    assert.match(header,/@updateURL\s+https:\/\/raw\.githubusercontent\.com\/ronaldojf\/toolpatch\/main\/dist\/toolpatch\.user\.js/);
+    assert.match(header,/@downloadURL\s+https:\/\/raw\.githubusercontent\.com\/ronaldojf\/toolpatch\/main\/dist\/toolpatch\.user\.js/);
+    assert.doesNotMatch(header,/@(?:require|connect)/);
     assert.doesNotMatch(header,/<all_urls>/);
     for(const [url,wanted] of [['https://example.test/',0],['https://tuamaeaquelaursa.com/bundle-test',4]]) {
       const registry=new Map();
@@ -46,4 +48,13 @@ test('release metadata requires HTTPS and uses explicit base, rejecting credenti
     assert.match(source,/@updateURL\s+https:\/\/example.test\/toolpatch\/toolpatch.user.js/);
     assert.match(source,/@downloadURL\s+https:\/\/example.test\/toolpatch\/toolpatch.user.js/);
   } finally {await rm(dir,{recursive:true,force:true});}
+});
+
+
+test('explicit local-only build omits update metadata',async()=>{
+  const dir=await mkdtemp(join(tmpdir(),'toolpatch-local-'));
+  try {
+    const output=join(dir,'toolpatch.user.js');await buildUserscript({output,updateBase:null});
+    const source=await readFile(output,'utf8');assert.doesNotMatch(source.slice(0,source.indexOf('// ==/UserScript==')),/@(?:updateURL|downloadURL)/);
+  }finally{await rm(dir,{recursive:true,force:true});}
 });

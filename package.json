@@ -1,9 +1,12 @@
 {
   "name": "toolpatch",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "type": "module",
   "description": "Site adapters that expose WebMCP tools through a userscript",
+  "config": {
+    "updateBase": "https://raw.githubusercontent.com/ronaldojf/toolpatch/main/dist/"
+  },
   "scripts": {
     "test": "node --test",
     "build": "node scripts/build.mjs"

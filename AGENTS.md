@@ -36,10 +36,10 @@ Use Node >=22; `npm ci`, `npm test`, `npm run build`. Escreva regressões releva
 
 A instalação inicial pode exigir colar o conteúdo completo de `dist/toolpatch.user.js` no painel do Tampermonkey. O painel interno da extensão não é acessível pela automação atual; peça a ação manual depois de preparar o arquivo concreto. Não tente contornar essa restrição por outra superfície.
 
-Build de desenvolvimento omite URLs de atualização. Build com `--update-base https://host/pasta/` exige fonte real previamente escolhida e acessível; aumente a versão para atualizar. Valide que a URL de atualização é acessível ao Tampermonkey sem a sessão SSH do desenvolvedor.
+O build usa `config.updateBase` do `package.json` para gerar os endereços de atualização. `--update-base https://host/pasta/` permite gerar um artefato com outra fonte. Valide que a URL é acessível ao Tampermonkey sem a sessão SSH do desenvolvedor.
 
 ## Distribuição
 
-O workflow `.github/workflows/publish.yml` testa e publica o userscript pelo GitHub Pages quando código ou configuração de build chegam à `main`. A instalação distribuída usa `https://ronaldojf.github.io/toolpatch/toolpatch.user.js` e inclui os endereços de atualização do Tampermonkey. O Pages recebe somente `dist/`.
+Instalação e atualizações usam diretamente `https://raw.githubusercontent.com/ronaldojf/toolpatch/main/dist/toolpatch.user.js`. O arquivo distribuído é o artefato versionado na `main`, com `@updateURL` e `@downloadURL` apontando para essa mesma URL.
 
-Ao alterar o código distribuído, incremente `version` no `package.json` e atualize `package-lock.json` antes de publicar; o Tampermonkey identifica atualizações pelo número da versão. Execute `npm test` e `npm run build`, versionando também o artefato gerado. A versão publicada pelo workflow inclui os metadados de atualização; instale a partir da URL de distribuição.
+Ao alterar o código distribuído, incremente `version` no `package.json` e atualize `package-lock.json`; o Tampermonkey identifica atualizações pelo número da versão. Execute `npm test` e `npm run build`, versione também `dist/toolpatch.user.js` e publique o commit na `main`. Instale o arquivo completo da URL de distribuição uma vez em cada navegador; o Tampermonkey passa a buscar as novas versões dessa URL.

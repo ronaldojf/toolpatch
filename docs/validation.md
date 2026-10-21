@@ -28,6 +28,6 @@ Para repetir essa prova isolada, na raiz do projeto execute `python3 -m http.ser
 
 ## Limites da evidência
 
-As caixas reais estavam vazias: leitura de conteúdo e encontro por filtro foram validados com mensagens sintéticas. Atualização automática desta distribuição aguarda uma fonte HTTPS configurada. Instalações em Windows/Omarchy e compatibilidade com versões antigas de `navigator.modelContext` não foram verificadas.
+As caixas reais estavam vazias: leitura de conteúdo e encontro por filtro foram validados com mensagens sintéticas. A distribuição atual usa o arquivo raw de `dist/toolpatch.user.js` na `main`; a instalação com atualização automática está descrita no AGENTS.md. Instalações em Windows/Omarchy e compatibilidade com versões antigas de `navigator.modelContext` não foram verificadas.
 
 Se todas as tentativas forem limitadas pelo servidor, a espera termina com `timeout` no prazo; chamadas avulsas devolvem `rate_limited` e o prazo de nova tentativa. Falhas persistentes de registro podem repetir o aviso de diagnóstico a cada segundo; a revisão registrou esse ajuste menor como pendente.

@@ -7,9 +7,10 @@ import { adapters } from '../src/adapters/index.js';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 export async function buildUserscript({ output = resolve(root, 'dist/toolpatch.user.js'), updateBase } = {}) {
-  const { version } = JSON.parse(await readFile(resolve(root, 'package.json'), 'utf8'));
+  const { version, config } = JSON.parse(await readFile(resolve(root, 'package.json'), 'utf8'));
+  if (updateBase === undefined) updateBase = config?.updateBase;
   let updateURL;
-  if (updateBase !== undefined) {
+  if (updateBase != null) {
     let base;
     try { base = new URL(updateBase); } catch { throw new Error('Update base must be an absolute HTTPS URL.'); }
     if (base.protocol !== 'https:' || base.username || base.password || base.search || base.hash || !base.pathname.endsWith('/')) {
