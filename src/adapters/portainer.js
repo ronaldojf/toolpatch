@@ -72,12 +72,12 @@ function createTools({ window, signal: lifecycleSignal }) {
       user: { type: 'string', maxLength: 2000, description: 'Optional exec user; no NUL.' },
       workingDir: { type: 'string', maxLength: 2000, description: 'Optional working directory; no NUL.' },
       interactive: { type: 'boolean', default: false, description: 'Attach stdin for subsequent write_exec calls.' },
-      waitMs: { ...waitMs, default: 1000, description: 'Wait for completion up to this many milliseconds; the process may continue afterward.' },
+      waitMs: { ...waitMs, default: 1000, description: 'Wait for process completion and terminal drain up to this many milliseconds. connected:true can mean output is still pending even with finished status; timedOut:true reports an exhausted wait budget. The process may continue unless exit was verified.' },
     }, ['environmentId', 'containerId', 'command'], false, console.execContainer),
     tool('read_exec', 'Read retained merged terminal output and inspect current execution status without starting execution. Cursor is an absolute UTF8 byte offset; pass the returned cursor for the next chunk. At most 256 KiB retained; outputLost and oldestCursor identify rollover. Sessions expire after ten minutes without tool activity. A disconnected transport does not prove process exit.', {
       sessionId,
       cursor: { type: 'integer', minimum: 0, maximum: Number.MAX_SAFE_INTEGER, default: 0 }, maxChars,
-      waitMs: { ...waitMs, default: 0, description: 'Wait for additional output or completion up to this many milliseconds.' },
+      waitMs: { ...waitMs, default: 0, description: 'Wait for additional output or terminal drain up to this many milliseconds, including after verified process exit. connected:true can mean final output is pending; timedOut:true reports an exhausted wait budget.' },
     }, ['sessionId'], true, console.readExec),
     tool('write_exec', 'Send exactly the provided text to a connected interactive console session, including deliberately supplied newlines and controls. May modify the container. Does not append a newline or resend after failure.', {
       sessionId, input: { type: 'string', maxLength: 65536, description: 'Exact stdin text, including any deliberate newline or control characters.' },

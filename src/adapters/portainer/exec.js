@@ -155,10 +155,11 @@ export function createExecOperations({ window, client, signal: lifecycleSignal, 
       // An open/close during the HTTP round trip can make its pre-transition status obsolete.
       if (transportVersion !== session.transportVersion) continue;
       if (untilExit && session.transportError) fail(session.transportError, 'The console transport failed; the process may still be running.');
-      if (session.status === 'finished' || (!untilExit && session.end > cursor) || session.disconnected) return false;
+      // Verified process exit does not mean the terminal's last frame has arrived.
+      if ((!untilExit && session.end > cursor) || session.disconnected) return false;
       const remaining = deadline - Date.now();
       if (remaining <= 0) return waitMs > 0;
-      await pause(session, Math.min(100, remaining), signal);
+      await pause(session, session.status === 'finished' ? remaining : Math.min(100, remaining), signal);
       checkSession(session, signal);
     }
   }

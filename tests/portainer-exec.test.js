@@ -89,6 +89,84 @@ test('prestart null exit code remains unknown', async t => {
   const value = await ops.execContainer({ ...args, waitMs: 0 }); assert.equal(value.status, 'unknown'); assert.equal(value.exitCode, undefined); assert.equal(value.processMayContinue, true);
 });
 
+test('one-shot completion waits for final terminal output and socket drain after verified exit', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] });
+  const { ops, sockets, calls } = setup(t, { socket(ws, states) { states.set(ws.id, { Running: false, ExitCode: 0 }); } });
+  let settled = false;
+  const pending = ops.execContainer({ ...args, waitMs: 1000 }).then(value => { settled = true; return value; });
+  await turn(); assert.equal(settled, false, 'verified exit must not finish before queued terminal output');
+  t.mock.timers.tick(10); sockets[0].message('late');
+  await turn(); assert.equal(settled, false, 'one-shot execution must also wait for transport drain');
+  t.mock.timers.tick(10); sockets[0].close();
+  const value = await pending;
+  assert.equal(value.status, 'finished'); assert.equal(value.exitCode, 0); assert.equal(value.processMayContinue, false);
+  assert.equal(value.output, 'late'); assert.equal(value.cursor, 4); assert.equal(value.truncated, false);
+  assert.equal(value.connected, false); assert.equal(value.timedOut, false);
+  const tail = await ops.readExec({ sessionId: value.sessionId, cursor: value.cursor });
+  assert.equal(tail.output, ''); assert.equal(tail.cursor, 4);
+  assert.equal(calls.filter(c => c.init.method === 'POST').length, 1);
+});
+
+test('finished reads wait for new terminal output and return an available chunk before socket drain', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] });
+  const { ops, sockets } = setup(t, { socket(ws, states) { states.set(ws.id, { Running: false, ExitCode: 7 }); } });
+  const first = await ops.execContainer({ ...args, waitMs: 0 });
+  let settled = false;
+  const pending = ops.readExec({ sessionId: first.sessionId, cursor: first.cursor, waitMs: 1000 }).then(value => { settled = true; return value; });
+  await turn(); assert.equal(settled, false, 'finished status must not bypass a positive output wait');
+  t.mock.timers.tick(10); sockets[0].message('late');
+  const value = await pending;
+  assert.equal(value.status, 'finished'); assert.equal(value.exitCode, 7); assert.equal(value.processMayContinue, false);
+  assert.equal(value.output, 'late'); assert.equal(value.cursor, 4); assert.equal(value.truncated, false);
+  assert.equal(value.connected, true); assert.equal(value.timedOut, false);
+  settled = false;
+  const drained = ops.readExec({ sessionId: first.sessionId, cursor: value.cursor, waitMs: 1000 }).then(value => { settled = true; return value; });
+  await turn(); assert.equal(settled, false);
+  sockets[0].close();
+  const tail = await drained;
+  assert.equal(tail.output, ''); assert.equal(tail.cursor, 4); assert.equal(tail.connected, false); assert.equal(tail.timedOut, false);
+});
+
+for (const operation of ['execContainer', 'readExec']) {
+  test(`${operation} preserves verified exit and pending terminal output at the drain deadline`, async t => {
+    t.mock.timers.enable({ apis: ['setTimeout', 'Date'] });
+    const { ops, sockets, calls } = setup(t, { socket(ws, states) { states.set(ws.id, { Running: false, ExitCode: 9 }); } });
+    const first = operation === 'readExec' ? await ops.execContainer({ ...args, waitMs: 0 }) : undefined;
+    let settled = false;
+    const pending = (operation === 'execContainer'
+      ? ops.execContainer({ ...args, waitMs: 1000 })
+      : ops.readExec({ sessionId: first.sessionId, cursor: first.cursor, waitMs: 1000 }))
+      .then(value => { settled = true; return value; });
+    await turn();
+    const inspectCount = calls.length;
+    t.mock.timers.tick(999); await turn();
+    assert.equal(settled, false, 'an open transport must wait until its drain deadline');
+    assert.equal(calls.length, inspectCount, 'verified exit must not busy-poll HTTP while waiting for drain');
+    t.mock.timers.tick(1);
+    const value = await pending;
+    assert.equal(value.status, 'finished'); assert.equal(value.exitCode, 9); assert.equal(value.processMayContinue, false);
+    assert.equal(value.connected, true); assert.equal(value.timedOut, true); assert.equal(sockets[0].readyState, 1);
+    assert.equal(value.output, ''); assert.equal(value.cursor, 0); assert.equal(value.truncated, false);
+    sockets[0].message('late'); sockets[0].close();
+    const tail = await ops.readExec({ sessionId: value.sessionId, cursor: value.cursor });
+    assert.equal(tail.output, 'late'); assert.equal(tail.cursor, 4); assert.equal(tail.connected, false);
+    assert.equal(calls.filter(c => c.init.method === 'POST').length, 1);
+  });
+}
+
+test('action cancellation interrupts a finished session waiting for terminal drain without closing it', async t => {
+  const { ops, sockets } = setup(t, { socket(ws, states) { states.set(ws.id, { Running: false, ExitCode: 0 }); } });
+  const action = new AbortController();
+  const pending = ops.execContainer({ ...args, waitMs: 10000 }, action.signal);
+  await turn(); action.abort();
+  let failed; try { await pending; } catch (error) { failed = error; }
+  assert.equal(failed?.code, 'cancelled'); assert.ok(failed.sessionId); assert.equal(failed.processMayContinue, false);
+  assert.equal(sockets[0].readyState, 1);
+  sockets[0].message('late'); sockets[0].close();
+  const value = await ops.readExec({ sessionId: failed.sessionId });
+  assert.equal(value.output, 'late'); assert.equal(value.cursor, 4); assert.equal(value.status, 'finished');
+});
+
 test('byte cursors decode binary UTF8 boundaries and paginate Unicode without replacement characters', async t => {
   const { ops, sockets } = setup(t);
   const first = await ops.execContainer({ ...args, waitMs: 0 });
