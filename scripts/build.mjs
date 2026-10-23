@@ -23,7 +23,7 @@ export async function buildUserscript({ output = resolve(root, 'dist/toolpatch.u
     '// @name         Toolpatch',
     '// @namespace    https://github.com/ronaldojf/toolpatch',
     `// @version      ${version}`,
-    '// @description  WebMCP tools for supported sites, starting with Ursa temporary email.',
+    '// @description  WebMCP tools for Ursa temporary email and Portainer containers.',
     `// @icon         https://raw.githubusercontent.com/ronaldojf/toolpatch/main/assets/icon.png?v=${version}`,
     ...[...new Set(adapters.flatMap(adapter => adapter.matches))].map(match => `// @match        ${match}`),
     ...(updateURL ? [`// @updateURL    ${updateURL}`, `// @downloadURL  ${updateURL}`] : []),

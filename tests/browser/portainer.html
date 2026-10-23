@@ -1,0 +1,71 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Toolpatch synthetic Portainer fixture</title>
+<h1>Toolpatch: synthetic Portainer</h1>
+<p>Native WebMCP registration with synthetic HTTP and console transport only. No real containers or commands.</p>
+<p id="status">Loading fixture…</p>
+<script type="module">
+import { portainerAdapter } from '/src/adapters/portainer.js';
+const context = document.modelContext ?? navigator.modelContext;
+const controller = new AbortController();
+window.addEventListener('pagehide', () => controller.abort(), { once: true });
+const endpoint = { Id: 7, Name: 'Synthetic environment', Type: 1, Status: 1 };
+const container = { Id: 'synthetic-container', Name: '/fixture', Names: ['/fixture'], Image: 'sha256:synthetic-image', ImageID: 'sha256:synthetic-image', State: 'running', Config: { Image: 'fixture:latest', Tty: true, Env: ['FIXTURE=synthetic'] }, NetworkSettings: { Networks: {} }, Mounts: [] };
+const inventories = {
+  containers: [container],
+  images: [{ Id: 'sha256:synthetic-image', RepoTags: ['fixture:latest'], Config: {} }],
+  networks: [{ Id: 'synthetic-network', Name: 'fixture-network', Driver: 'bridge', Containers: {} }],
+  volumes: [{ Name: 'fixture-volume', Driver: 'local' }],
+  stacks: [{ Id: 11, Name: 'fixture-stack', EndpointId: 7, Type: 2, Status: 1, Env: [] }],
+};
+const executions = new Map(); let next = 0;
+class SyntheticSocket extends EventTarget {
+  constructor(url) {
+    super(); this.readyState = 0;
+    this.execution = executions.get(new URL(url).searchParams.get('id'));
+    queueMicrotask(() => {
+      if (this.readyState !== 0) return;
+      this.readyState = 1; this.dispatchEvent(new Event('open'));
+      this.dispatchEvent(new MessageEvent('message', { data: 'Synthetic terminal output\r\n' }));
+      if (!this.execution.interactive) { this.execution.Running = false; this.execution.ExitCode = 0; this.close(); }
+    });
+  }
+  send(input) { this.dispatchEvent(new MessageEvent('message', { data: 'Synthetic stdin: ' + input })); }
+  close() { if (this.readyState === 3) return; this.readyState = 3; this.dispatchEvent(new Event('close')); }
+}
+const syntheticWindow = {
+  location: new URL('https://portainer.attq/#!/7/docker/containers/synthetic-container'),
+  WebSocket: SyntheticSocket,
+  async fetch(url, init) {
+    const path = new URL(url).pathname;
+    if (path === '/api/endpoints/7') return Response.json(endpoint);
+    if (path === '/api/stacks') return Response.json(inventories.stacks);
+    if (path === '/api/stacks/11') return Response.json(inventories.stacks[0]);
+    const base = '/api/endpoints/7/docker/';
+    if (!path.startsWith(base)) throw new Error('Unexpected synthetic API path.');
+    const route = path.slice(base.length);
+    if (route === 'containers/synthetic-container/exec' && init.method === 'POST') {
+      const body = JSON.parse(init.body), Id = 'ab' + (++next).toString(16);
+      executions.set(Id, { Running: true, ExitCode: null, interactive: body.AttachStdin });
+      return Response.json({ Id }, { status: 201 });
+    }
+    const exec = /^exec\/([a-f0-9]+)\/json$/.exec(route);
+    if (exec && executions.has(exec[1])) return Response.json(executions.get(exec[1]));
+    if (route === 'containers/synthetic-container/logs') return new Response('Synthetic log line\n');
+    for (const kind of ['containers', 'images', 'networks', 'volumes']) {
+      if (route === kind + (['containers', 'images'].includes(kind) ? '/json' : '')) return Response.json(kind === 'volumes' ? { Volumes: inventories.volumes, Warnings: null } : inventories[kind]);
+      const item = inventories[kind][0];
+      if (route === kind + '/' + encodeURIComponent(item.Id ?? item.Name) + (['containers', 'images'].includes(kind) ? '/json' : '')) return Response.json(item);
+    }
+    return new Response('Synthetic resource not found.', { status: 404 });
+  },
+};
+try {
+  if (typeof context?.registerTool !== 'function') throw new Error('Native WebMCP unavailable.');
+  for (const tool of portainerAdapter.createTools({ window: syntheticWindow, signal: controller.signal })) await context.registerTool(tool, { signal: controller.signal });
+  document.querySelector('#status').textContent = 'Ready. Eight native Portainer tools; environment 7; synthetic data only.';
+} catch {
+  controller.abort();
+  document.querySelector('#status').textContent = 'Native WebMCP unavailable or registration failed.';
+}
+</script>

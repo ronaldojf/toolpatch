@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { startToolpatch } from '../src/core/runtime.js';
 import { ursaAdapter } from '../src/adapters/ursa.js';
+import { adapters } from '../src/adapters/index.js';
 
 function fixture(url='https://tuamaeaquelaursa.com/first') {
   const registry=new Map(), warnings=[];
@@ -64,4 +65,48 @@ test('missing API is observable and failed registrations roll back partial tools
   const t=fixture();const register=t.window.document.modelContext.registerTool;
   t.window.document.modelContext.registerTool=async(...args)=>{if(++count===2)throw new Error('denied');return register(...args);};
   const stop2=await startToolpatch(t.window,[ursaAdapter]);assert.equal(t.registry.size,0);assert.equal(t.warnings.length,1);stop2();
+});
+
+test('Portainer environment activation survives container navigation and resets on selection, BFCache and offsite',async()=>{
+  const s=fixture('https://portainer.attq/#!/auth');
+  s.window.fetch=async url=>Response.json({Id:Number(new URL(url).pathname.split('/').at(-1)),Name:'Synthetic',Type:1,Status:1});
+  const stop=await startToolpatch(s.window,adapters);
+  assert.equal(s.registry.size,8);
+  const initial=s.registry.get('toolpatch_portainer_get_context');
+  assert.equal(payload(await initial.execute({})).selected,false);
+  s.window.location=new URL('https://portainer.attq/#!/7/docker/containers/synthetic');s.window.tick();await flush();
+  const selected=s.registry.get('toolpatch_portainer_get_context');
+  assert.notEqual(initial,selected);assert.equal(payload(await initial.execute({})).error.code,'cancelled');
+  assert.equal(payload(await selected.execute({})).environmentId,7);
+  s.window.location=new URL('https://portainer.attq/#!/7/docker/images');s.window.tick();await flush();
+  assert.equal(s.registry.get('toolpatch_portainer_get_context'),selected);
+  s.window.location=new URL('https://portainer.attq/#!/8/docker');s.window.tick();await flush();
+  assert.equal(payload(await selected.execute({})).error.code,'cancelled');
+  assert.equal(payload(await s.registry.get('toolpatch_portainer_get_context').execute({})).environmentId,8);
+  s.window.dispatchEvent(new Event('pagehide'));assert.equal(s.registry.size,0);
+  s.window.dispatchEvent(new Event('pageshow'));await flush();assert.equal(s.registry.size,8);
+  s.window.location=new URL('https://example.test/');s.window.tick();await flush();assert.equal(s.registry.size,0);
+  stop();
+});
+
+test('Portainer lifecycle cancels pending HTTP and closes owned console transports on environment change',async()=>{
+  const s=fixture('https://portainer.attq/#!/7/docker');let socket;
+  s.window.WebSocket=class extends EventTarget {
+    constructor(){super();socket=this;this.readyState=0;queueMicrotask(()=>{this.readyState=1;this.dispatchEvent(new Event('open'));});}
+    close(){this.readyState=3;this.dispatchEvent(new Event('close'));}
+  };
+  let requestSignal;
+  s.window.fetch=async(url,init)=>{
+    const path=new URL(url).pathname;
+    if(path.endsWith('/exec'))return Response.json({Id:'abc'});
+    if(path.endsWith('/exec/abc/json'))return Response.json({Running:true,ExitCode:null});
+    requestSignal=init.signal;return new Promise(()=>{});
+  };
+  const stop=await startToolpatch(s.window,adapters);
+  const started=payload(await s.registry.get('toolpatch_portainer_exec_container').execute({environmentId:7,containerId:'synthetic',command:['true'],waitMs:0}));
+  assert.ok(started.sessionId);assert.equal(socket.readyState,1);
+  const pending=s.registry.get('toolpatch_portainer_get_context').execute({});
+  s.window.location=new URL('https://portainer.attq/#!/8/docker');s.window.tick();await flush();
+  assert.equal(requestSignal.aborted,true);assert.equal(socket.readyState,3);
+  assert.equal(payload(await pending).error.code,'cancelled');assert.equal(s.registry.size,8);stop();
 });
