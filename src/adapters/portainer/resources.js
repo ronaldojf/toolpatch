@@ -27,7 +27,13 @@ function environment(env) {
 }
 function project(value) { return value.Labels?.['com.docker.compose.project'] ?? value.Labels?.['com.docker.stack.namespace'] ?? value.Config?.Labels?.['com.docker.compose.project'] ?? value.Config?.Labels?.['com.docker.stack.namespace']; }
 function configuration(type, value) {
-  if (type === 'containers') return { image: value.Config?.Image, user: value.Config?.User, workingDir: value.Config?.WorkingDir, tty: value.Config?.Tty, environment: environment(value.Config?.Env), exposedPorts: Object.keys(value.Config?.ExposedPorts ?? {}), restartPolicy: value.HostConfig?.RestartPolicy?.Name, memoryBytes: value.HostConfig?.Memory, nanoCpus: value.HostConfig?.NanoCpus, logDriver: value.HostConfig?.LogConfig?.Type, omitted: ['command', 'labels', 'driverOptions', 'healthLog'] };
+  if (type === 'containers') {
+    const publishedPorts = Object.entries(value.NetworkSettings?.Ports ?? {}).flatMap(([port, bindings]) => {
+      const [containerPort, protocol] = port.split('/');
+      return (bindings ?? []).map(binding => ({ containerPort, protocol, hostAddress: binding.HostIp, hostPort: binding.HostPort }));
+    });
+    return { image: value.Config?.Image, user: value.Config?.User, workingDir: value.Config?.WorkingDir, tty: value.Config?.Tty, environment: environment(value.Config?.Env), exposedPorts: Object.keys(value.Config?.ExposedPorts ?? {}), publishedPorts, restartPolicy: value.HostConfig?.RestartPolicy?.Name, memoryBytes: value.HostConfig?.Memory, nanoCpus: value.HostConfig?.NanoCpus, logDriver: value.HostConfig?.LogConfig?.Type, omitted: ['command', 'labels', 'driverOptions', 'healthLog'] };
+  }
   if (type === 'images') return { user: value.Config?.User, workingDir: value.Config?.WorkingDir, environment: environment(value.Config?.Env), exposedPorts: Object.keys(value.Config?.ExposedPorts ?? {}), omitted: ['command', 'labels', 'layers'] };
   if (type === 'networks') return { driver: value.Driver, internal: value.Internal, attachable: value.Attachable, enableIPv6: value.EnableIPv6, subnets: (value.IPAM?.Config ?? []).map(item => ({ subnet: item.Subnet, gateway: item.Gateway, ipRange: item.IPRange })), omitted: ['labels', 'driverOptions', 'ipamOptions'] };
   if (type === 'volumes') return { driver: value.Driver, scope: value.Scope, omitted: ['labels', 'driverOptions', 'status', 'mountpoint'] };
@@ -82,7 +88,7 @@ export function createResourceOperations(client) {
     const endpoint = object(await client.request(`/api/endpoints/${context.environmentId}?excludeSnapshot=true`, { signal }));
     if (endpoint.Id !== context.environmentId) fail('invalid_response', 'Portainer returned the wrong environment.');
     client.check(signal);
-    return { ...context, selected: true, endpoint: { id: endpoint.Id, name: endpoint.Name, type: endpoint.Type, status: endpoint.Status } };
+    return { ...client.context(), selected: true, endpoint: { id: endpoint.Id, name: endpoint.Name, type: endpoint.Type, status: endpoint.Status } };
   }
   async function listResources(args, signal) {
     checkArgs(args, signal); const type = kind(args.kind); assertEnvironment(client, args.environmentId);
@@ -135,6 +141,7 @@ export function createResourceOperations(client) {
     if (times.since !== undefined && times.until !== undefined && times.since > times.until) fail('invalid_arguments', 'since must not be later than until.');
     const container = object(await client.request(`${docker(args.environmentId)}/containers/${id}/json`, { signal }));
     if (typeof container.Config?.Tty !== 'boolean') fail('invalid_response', 'Container inspect did not specify Docker log Tty encoding.');
+    if (container.Config.Tty) { params.set('stdout', 'true'); params.set('stderr', 'true'); }
     const { bytes, truncated: bytesTruncated } = await client.request(`${docker(args.environmentId)}/containers/${id}/logs?${params}`, { signal, responseType: 'bytes', maxBytes: 1048576 });
     let output = redact(decodeLogs(bytes, container.Config.Tty, stream, bytesTruncated));
     if (search) output = output.split('\n').filter(line => line.includes(search)).join('\n');

@@ -191,3 +191,40 @@ test('safe endpoint context excludes bulk Docker snapshots at the HTTP boundary'
   const { ops, calls } = setup({ '/api/endpoints/7': { Id: 7, Name: 'Synthetic', Type: 1, Status: 1 } });
   await ops.getContext({}); assert.equal(calls[0].url.searchParams.get('excludeSnapshot'), 'true');
 });
+
+test('container configuration projects published host ports with protocol and host address', async () => {
+  const value = { ...inspected, NetworkSettings: { ...inspected.NetworkSettings, Ports: { '80/tcp': [{ HostIp: '0.0.0.0', HostPort: '8080', private: secret }, { HostIp: '::', HostPort: '8080' }], '53/udp': [{ HostIp: '127.0.0.1', HostPort: '5353' }], '443/tcp': null } } };
+  const { ops } = setup({ [base + '/containers/container-full-id/json']: value });
+  const actual = await ops.inspectResource({ ...args('containers'), id: c.Id, sections: ['configuration'] });
+  assert.deepEqual(actual.configuration.publishedPorts, [
+    { containerPort: '80', protocol: 'tcp', hostAddress: '0.0.0.0', hostPort: '8080' },
+    { containerPort: '80', protocol: 'tcp', hostAddress: '::', hostPort: '8080' },
+    { containerPort: '53', protocol: 'udp', hostAddress: '127.0.0.1', hostPort: '5353' },
+  ]);
+  noSecrets(actual);
+});
+
+test('getContext returns the selected container after same-environment navigation during endpoint fetch', async () => {
+  const fixture = setup({ '/api/endpoints/7': async () => {
+    await Promise.resolve();
+    fixture.window.location.href = 'https://portainer.attq/#!/7/docker/containers/new-container-id';
+    return Response.json({ Id: 7, Name: 'Synthetic', Type: 1, Status: 1 });
+  } });
+  const value = await fixture.ops.getContext({});
+  assert.equal(value.environmentId, 7); assert.equal(value.containerId, 'new-container-id'); assert.equal(value.endpoint.id, 7);
+});
+
+test('TTY log requests include both channels even for requested stderr and report merged output', async () => {
+  const { ops, calls } = setup({
+    [base + '/containers/container-full-id/json']: { ...inspected, Config: { Tty: true } },
+    [base + '/containers/container-full-id/logs']: (_, url) => {
+      // Docker filters source channels before writing a raw TTY stream.
+      const stdout = url.searchParams.get('stdout') === 'true' ? 'merged terminal output\n' : '';
+      const stderr = url.searchParams.get('stderr') === 'true' ? 'stderr source output\n' : '';
+      return new Response(stdout + stderr);
+    },
+  });
+  const value = await ops.readLogs({ environmentId: 7, containerId: c.Id, stream: 'stderr' });
+  assert.equal(value.output, 'merged terminal output\nstderr source output\n'); assert.equal(value.stream, 'merged');
+  assert.equal(calls.at(-1).url.searchParams.get('stdout'), 'true'); assert.equal(calls.at(-1).url.searchParams.get('stderr'), 'true');
+});
