@@ -244,3 +244,24 @@ test('buffer rollover skips partial UTF8 characters and preserves returned curso
   const value = await ops.readExec({ sessionId: first.sessionId, cursor: 0, maxChars: 1 });
   assert.equal(value.oldestCursor, 4); assert.equal(value.output, 'x'); assert.equal(value.cursor, 5); assert.equal(value.outputLost, true);
 });
+
+test('initial U+FEFF terminal output is preserved with its byte cursor', async t => {
+  const { ops, sockets } = setup(t); const first = await ops.execContainer({ ...args, waitMs: 0 });
+  sockets[0].message(new Uint8Array([0xef, 0xbb]).buffer);
+  sockets[0].message(new Uint8Array([0xbf, 65]).buffer);
+  const value = await ops.readExec({ sessionId: first.sessionId, cursor: first.cursor, maxChars: 1 });
+  assert.equal(value.output, '\uFEFF'); assert.equal(value.cursor, 3); assert.equal(value.truncated, true);
+  const next = await ops.readExec({ sessionId: first.sessionId, cursor: value.cursor, maxChars: 1 });
+  assert.equal(next.output, 'A'); assert.equal(next.cursor, 4); assert.equal(next.truncated, false);
+});
+
+test('pagination preserves interior U+FEFF and repeatedly accepts its own returned byte cursor', async t => {
+  const { ops, sockets } = setup(t); const first = await ops.execContainer({ ...args, waitMs: 0 });
+  sockets[0].message('A\uFEFFB\uFEFFC');
+  let cursor = first.cursor;
+  for (const [output, nextCursor] of [['A', 1], ['\uFEFF', 4], ['B', 5], ['\uFEFF', 8], ['C', 9], ['', 9]]) {
+    const value = await ops.readExec({ sessionId: first.sessionId, cursor, maxChars: 1 });
+    assert.equal(value.output, output); assert.equal(value.cursor, nextCursor);
+    cursor = value.cursor;
+  }
+});

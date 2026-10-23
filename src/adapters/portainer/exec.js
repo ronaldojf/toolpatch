@@ -167,7 +167,7 @@ export function createExecOperations({ window, client, signal: lifecycleSignal, 
     const at = Math.max(cursor, session.oldest);
     const relative = at - session.oldest;
     if (relative < session.bytes.length && (session.bytes[relative] & 0xc0) === 0x80) fail('invalid_arguments', 'cursor must be a UTF8 character boundary returned by this tool.');
-    const text = new TextDecoder().decode(session.bytes.subarray(relative));
+    const text = new TextDecoder('utf-8', { ignoreBOM: true }).decode(session.bytes.subarray(relative));
     let output = '', count = 0;
     for (const char of text) { if (count++ === maxChars) break; output += char; }
     const next = at + encoder.encode(output).length;
@@ -208,7 +208,7 @@ export function createExecOperations({ window, client, signal: lifecycleSignal, 
       session = {
         sessionId: globalThis.crypto.randomUUID(), execId: created.Id, environmentId: args.environmentId,
         containerId: args.containerId, command: [...args.command], interactive,
-        bytes: new Uint8Array(), end: 0, oldest: 0, decoder: new TextDecoder(), waiters: new Set(),
+        bytes: new Uint8Array(), end: 0, oldest: 0, decoder: new TextDecoder('utf-8', { ignoreBOM: true }), waiters: new Set(),
         status: 'unknown', connected: false, disconnected: false,
         transportVersion: 0,
       };
